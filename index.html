@@ -260,6 +260,19 @@
         .music-item-artist { font-size: 11px; color: var(--text-tertiary); }
         .music-duration { font-size: 11px; color: var(--text-tertiary); }
 
+        /* 录音跟读+评分 */
+        .record-result { margin-top:14px; padding-top:14px; border-top:1px solid var(--border-color); display:none; }
+        .record-result.show { display:block; }
+        .score-circle { width:64px; height:64px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:700; margin:0 auto 10px; }
+        .score-label { text-align:center; font-size:12px; color:var(--text-secondary); margin-bottom:10px; }
+        .word-compare { font-size:14px; line-height:2; text-align:center; margin-bottom:10px; }
+        .word-correct { color:var(--accent-green); font-weight:600; }
+        .word-wrong { color:var(--accent-red); font-weight:600; text-decoration:underline; }
+        .word-miss { color:var(--text-tertiary); text-decoration:line-through; }
+        .correction-box { background:rgba(255,230,240,0.6); border-radius:10px; padding:10px 14px; font-size:12px; color:var(--text-secondary); line-height:1.6; }
+        .correction-box strong { color:var(--accent-hot-pink); }
+        .record-playback { display:flex; gap:8px; justify-content:center; margin-top:10px; }
+
         /* Toast */
         .toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.8); background: rgba(255, 90, 158, 0.92); backdrop-filter: blur(10px); color: white; padding: 12px 24px; border-radius: 18px; font-size: 14px; font-weight: 500; box-shadow: 0 4px 16px rgba(255, 90, 158, 0.3); z-index: 2000; opacity: 0; transition: all 0.3s; pointer-events: none; white-space: nowrap; }
         .toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
@@ -394,6 +407,7 @@
                 <button class="english-btn" onclick="startRecord('en')" id="enRecBtn">🎤 跟读</button>
             </div>
             <div class="phrase-list" id="phraseList"></div>
+            <div class="record-result" id="enRecordResult"></div>
         </div>
     </div>
 
@@ -415,6 +429,7 @@
                 <button class="english-btn" onclick="startRecord('kr')" id="krRecBtn">🎤 跟读</button>
             </div>
             <div class="phrase-list" id="krPhraseList"></div>
+            <div class="record-result" id="krRecordResult"></div>
         </div>
         <div class="card analysis-box">
             <div class="analysis-title">📝 韩语字母表</div>
@@ -443,6 +458,7 @@
                 <button class="english-btn" onclick="startRecord('jp')" id="jpRecBtn">🎤 跟读</button>
             </div>
             <div class="phrase-list" id="jpPhraseList"></div>
+            <div class="record-result" id="jpRecordResult"></div>
         </div>
         <div class="card analysis-box">
             <div class="analysis-title">📝 五十音图</div>
@@ -766,13 +782,20 @@ function renderJpPhrases() {
     `).join('');
 }
 
-// ====== 录音跟读功能 ======
-let mediaRecorder = null, audioChunks = [];
-function startRecord(lang) {
-    const btnMap = { en: 'enRecBtn', kr: 'krRecBtn', jp: 'jpRecBtn' };
-    const btn = document.getElementById(btnMap[lang]);
-    if (!btn) return;
+// ====== 录音跟读 + 语音识别评分 ======
+let mediaRecorder = null, audioChunks = [], lastRecordBlob = null;
+const langMap = {
+    en: { recBtn:'enRecBtn', result:'enRecordResult', srLang:'en-US', field:'en', sentences:sentences, idx:() => sentIdx },
+    kr: { recBtn:'krRecBtn', result:'krRecordResult', srLang:'ko-KR', field:'kr', sentences:krSentences, idx:() => krIdx },
+    jp: { recBtn:'jpRecBtn', result:'jpRecordResult', srLang:'ja-JP', field:'jp', sentences:jpSentences, idx:() => jpIdx }
+};
 
+function startRecord(lang) {
+    const cfg = langMap[lang];
+    if (!cfg) return;
+    const btn = document.getElementById(cfg.recBtn);
+
+    // 如果正在录音 → 停止并评分
     if (mediaRecorder && mediaRecorder.state === 'recording') {
         mediaRecorder.stop();
         btn.textContent = '🎤 跟读';
@@ -785,25 +808,202 @@ function startRecord(lang) {
         return;
     }
 
+    // 隐藏之前的评分结果
+    document.getElementById(cfg.result).classList.remove('show');
+
     navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
         mediaRecorder = new MediaRecorder(stream);
         audioChunks = [];
-        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
         mediaRecorder.onstop = () => {
-            const blob = new Blob(audioChunks, { type: 'audio/webm' });
-            const url = URL.createObjectURL(blob);
-            const audio = new Audio(url);
-            showToast('🎵 你的录音已保存，正在播放...');
-            audio.play();
             stream.getTracks().forEach(t => t.stop());
+            lastRecordBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            // 先播放录音让用户听到自己的声音
+            const url = URL.createObjectURL(lastRecordBlob);
+            const audio = new Audio(url);
+            audio.play().catch(() => {});
+            // 然后用语音识别评分
+            scorePronunciation(lang, lastRecordBlob);
         };
         mediaRecorder.start();
         btn.textContent = '⏹️ 停止';
         btn.style.background = 'rgba(255, 90, 90, 0.2)';
-        showToast('🎤 正在录音，再点一次停止并播放');
+        showToast('🎤 正在录音...再点一次停止并评分');
     }).catch(() => {
         showToast('⚠️ 无法访问麦克风，请检查权限');
     });
+}
+
+// 语音识别评分
+function scorePronunciation(lang, audioBlob) {
+    const cfg = langMap[lang];
+    const resultEl = document.getElementById(cfg.result);
+    const original = cfg.sentences[cfg.idx()][cfg.field].replace(/["""！。！？?.,]/g, '').trim();
+    const originalWords = original.split(/\s+/);
+
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+        // 不支持语音识别 → 只提供录音回放
+        resultEl.innerHTML = `
+            <div style="text-align:center;font-size:13px;color:var(--text-secondary);margin-bottom:10px;">
+                🎵 录音已完成，点击下方按钮重听
+            </div>
+            <div class="record-playback">
+                <button class="english-btn" onclick="playbackRecord()">▶ 重听录音</button>
+                <button class="english-btn" onclick="speakText('${original.replace(/'/g,"\\'")}', '${cfg.srLang}')">🔊 听标准发音</button>
+            </div>
+            <div style="margin-top:10px;font-size:11px;color:var(--text-tertiary);text-align:center;">
+                你的浏览器不支持语音评分，可对比标准发音自行纠正
+            </div>`;
+        resultEl.classList.add('show');
+        return;
+    }
+
+    // 显示评分中状态
+    resultEl.innerHTML = '<div style="text-align:center;padding:16px;font-size:13px;color:var(--text-secondary);">🔍 正在识别评分...</div>';
+    resultEl.classList.add('show');
+
+    const recognition = new SR();
+    recognition.lang = cfg.srLang;
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    let recognizedText = '';
+    let timeoutHandle = setTimeout(() => {
+        recognition.stop();
+        showScoreResult(lang, originalWords, '', false);
+    }, 8000);
+
+    recognition.onresult = (event) => {
+        clearTimeout(timeoutHandle);
+        recognizedText = event.results[0][0].transcript;
+        showScoreResult(lang, originalWords, recognizedText, true);
+    };
+    recognition.onerror = (event) => {
+        clearTimeout(timeoutHandle);
+        showScoreResult(lang, originalWords, '', false);
+    };
+    recognition.onend = () => {
+        clearTimeout(timeoutHandle);
+    };
+
+    // 用录音文件做语音识别
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audio = new Audio(audioUrl);
+    audio.play().catch(() => {
+        // 如果播放失败，直接显示无识别结果
+        clearTimeout(timeoutHandle);
+        showScoreResult(lang, originalWords, '', false);
+    });
+}
+
+// 显示评分结果
+function showScoreResult(lang, originalWords, recognizedText, recognized) {
+    const cfg = langMap[lang];
+    const resultEl = document.getElementById(cfg.result);
+    const recognizedWords = recognized ? recognizedText.toLowerCase().replace(/["""！。！？?.,]/g, '').trim().split(/\s+/) : [];
+
+    // 逐词对比
+    let correctCount = 0;
+    let wordHtml = '';
+    const usedRec = new Set();
+
+    originalWords.forEach((word, i) => {
+        const wLower = word.toLowerCase();
+        let matched = false;
+        for (let j = 0; j < recognizedWords.length; j++) {
+            if (usedRec.has(j)) continue;
+            const rw = recognizedWords[j];
+            // 精确匹配或编辑距离<=1
+            if (rw === wLower || levenshtein(rw, wLower) <= 1) {
+                matched = true;
+                usedRec.add(j);
+                break;
+            }
+        }
+        if (matched) {
+            correctCount++;
+            wordHtml += `<span class="word-correct">${word}</span> `;
+        } else {
+            wordHtml += `<span class="word-wrong">${word}</span> `;
+        }
+    });
+
+    // 多说的词
+    recognizedWords.forEach((rw, j) => {
+        if (!usedRec.has(j) && rw) {
+            wordHtml += `<span class="word-miss">${rw}</span> `;
+        }
+    });
+
+    const score = originalWords.length > 0 ? Math.round((correctCount / originalWords.length) * 100) : 0;
+    const scoreColor = score >= 80 ? '#5fc89f' : score >= 60 ? '#ff9966' : '#ff5f7e';
+    const scoreMsg = score >= 90 ? '🎉 发音非常标准！' :
+                     score >= 75 ? '👍 发音不错，继续加油！' :
+                     score >= 50 ? '💪 还可以，多练习几遍' :
+                     '📖 建议多听标准发音后重试';
+
+    // 纠错建议
+    let correction = '';
+    if (recognized) {
+        const wrongWords = originalWords.filter((w, i) => {
+            const wLower = w.toLowerCase();
+            return !recognizedWords.some(rw => rw === wLower || levenshtein(rw, wLower) <= 1);
+        });
+        if (wrongWords.length > 0) {
+            correction = `<div class="correction-box">
+                <strong>📌 需要注意的词:</strong><br>${wrongWords.map(w => `• <strong>${w}</strong> → 点击下方按钮听标准发音`).join('<br>')}
+            </div>`;
+        } else if (score >= 90) {
+            correction = '<div class="correction-box"><strong>✅ 完美!</strong> 所有单词发音都正确</div>';
+        }
+    } else {
+        correction = '<div class="correction-box"><strong>⚠️ 未能识别语音</strong>，可能是环境噪音较大。请到安静的地方再试，或点击下方按钮对比标准发音。</div>';
+    }
+
+    resultEl.innerHTML = `
+        <div class="score-circle" style="background:${scoreColor}22;color:${scoreColor};border:3px solid ${scoreColor};">${score}</div>
+        <div class="score-label">${scoreMsg}</div>
+        <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:6px;text-align:center;">原文对比 (绿色=正确，红色=需改进):</div>
+        <div class="word-compare">${wordHtml}</div>
+        ${correction}
+        <div class="record-playback">
+            <button class="english-btn" onclick="playbackRecord()">▶ 重听录音</button>
+            <button class="english-btn" onclick="speakText('${originalWords.join(' ').replace(/'/g,"\\'")}', '${cfg.srLang}')">🔊 听标准发音</button>
+        </div>
+    `;
+    resultEl.classList.add('show');
+}
+
+// 重听录音
+function playbackRecord() {
+    if (lastRecordBlob) {
+        const url = URL.createObjectURL(lastRecordBlob);
+        const audio = new Audio(url);
+        audio.play().catch(() => showToast('⚠️ 播放失败'));
+    } else {
+        showToast('⚠️ 没有录音');
+    }
+}
+
+// 编辑距离算法（比较两个词的相似度）
+function levenshtein(a, b) {
+    if (a.length === 0) return b.length;
+    if (b.length === 0) return a.length;
+    const matrix = [];
+    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+    for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+            if (b.charAt(i-1) === a.charAt(j-1)) {
+                matrix[i][j] = matrix[i-1][j-1];
+            } else {
+                matrix[i][j] = Math.min(matrix[i-1][j-1]+1, matrix[i][j-1]+1, matrix[i-1][j]+1);
+            }
+        }
+    }
+    return matrix[b.length][a.length];
 }
 
 // ====== 书籍 ======
@@ -831,16 +1031,16 @@ function renderBooks() {
     `).join('');
 }
 
-// ====== 音乐（真实播放） ======
+// ====== 音乐（本地播放） ======
 const playlist = [
-    { title:'晴天', artist:'周杰伦', cover:'☀️', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' },
-    { title:'七里香', artist:'周杰伦', cover:'🌿', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3' },
-    { title:'夜曲', artist:'周杰伦', cover:'🌙', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3' },
-    { title:'小星星', artist:'汪苏泷', cover:'⭐', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3' },
-    { title:'一笑倾城', artist:'汪苏泷', cover:'😊', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3' },
-    { title:'万有引力', artist:'汪苏泷', cover:'💫', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3' },
-    { title:'River Flows in You', artist:'Yiruma · 钢琴曲', cover:'🎹', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3' },
-    { title:'Clair de Lune', artist:'Debussy · 古典', cover:'🎶', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3' }
+    { title:'晴天', artist:'周杰伦', cover:'☀️', url:'audio/晴天-周杰伦.mp3' },
+    { title:'七里香', artist:'周杰伦', cover:'🌿', url:'audio/七里香-周杰伦.mp3' },
+    { title:'夜曲', artist:'周杰伦', cover:'🌙', url:'audio/夜曲-周杰伦.mp3' },
+    { title:'小星星', artist:'汪苏泷', cover:'⭐', url:'audio/小星星-汪苏泷.mp3' },
+    { title:'一笑倾城', artist:'汪苏泷', cover:'😊', url:'audio/一笑倾城-汪苏泷.mp3' },
+    { title:'万有引力', artist:'汪苏泷', cover:'💫', url:'audio/万有引力-汪苏泷.mp3' },
+    { title:'River Flows in You', artist:'Yiruma · 钢琴曲', cover:'🎹', url:'audio/钢琴曲-RiverFlows.mp3' },
+    { title:'Clair de Lune', artist:'Debussy · 古典', cover:'🎶', url:'audio/古典钢琴-ClairDeLune.mp3' }
 ];
 let musicIdx = -1, isPlaying = false, audioEl = null, progressTimer;
 
