@@ -1,0 +1,47 @@
+{
+  "updated_at": "2026-07-31 20:46:45",
+  "data": [
+    {
+      "name": "密卫转债",
+      "code": "113658",
+      "price": 109.73,
+      "premium": 0.66,
+      "double_low": 110.39
+    },
+    {
+      "name": "美锦转债",
+      "code": "127061",
+      "price": 108.71,
+      "premium": 5.36,
+      "double_low": 114.07
+    },
+    {
+      "name": "闻泰转债",
+      "code": "110081",
+      "price": 100.68,
+      "premium": 15.46,
+      "double_low": 116.14
+    },
+    {
+      "name": "大参转债",
+      "code": "113605",
+      "price": 118.99,
+      "premium": 4.87,
+      "double_low": 123.86
+    },
+    {
+      "name": "鸿路转债",
+      "code": "128134",
+      "price": 121.36,
+      "premium": 5.19,
+      "double_low": 126.55
+    },
+    {
+      "name": "齐翔转2",
+      "code": "128128",
+      "price": 110.25,
+      "premium": 16.54,
+      "double_low": 126.79
+    }
+  ]
+}
