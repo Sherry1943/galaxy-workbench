@@ -1,0 +1,1589 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="小怪物工作台">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="icon" type="image/png" href="apple-touch-icon.png">
+    <meta name="theme-color" content="#ffe1ec">
+    <title>小怪物工作台</title>
+    <style>
+        /* ====== 全局重置与变量 ====== */
+        :root {
+            --bg-primary: #ffe7f0;
+            --bg-secondary: #fff0f5;
+            --bg-card: rgba(255, 255, 255, 0.75);
+            --bg-card-hover: #ffe5ee;
+            --text-primary: #4a2c3a;
+            --text-secondary: #8a6577;
+            --text-tertiary: #b59aaa;
+            --accent-blue: #6ba8ff;
+            --accent-green: #5fc89f;
+            --accent-red: #ff5f7e;
+            --accent-orange: #ff9966;
+            --accent-purple: #c87dff;
+            --accent-cyan: #5fc8e8;
+            --accent-pink: #ff7ab3;
+            --accent-hot-pink: #ff5a9e;
+            --accent-peach: #ffb89e;
+            --border-color: rgba(255, 122, 179, 0.18);
+            --radius: 16px;
+            --radius-sm: 10px;
+            --safe-area-top: env(safe-area-inset-top, 0px);
+            --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+        }
+
+        html {
+            font-size: 16px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC', 'Helvetica Neue', sans-serif;
+            background:
+                radial-gradient(ellipse at 0% 0%, #ffd9e8 0%, transparent 50%),
+                radial-gradient(ellipse at 100% 10%, #ffe5d4 0%, transparent 45%),
+                radial-gradient(ellipse at 50% 100%, #ffd0e0 0%, transparent 55%),
+                linear-gradient(180deg, #fff5fa 0%, #ffe7f0 50%, #ffe0ea 100%);
+            background-attachment: fixed;
+            color: var(--text-primary);
+            line-height: 1.5;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        /* ====== 顶部状态栏占位 ====== */
+        .safe-area-top {
+            height: var(--safe-area-top);
+            background: var(--bg-primary);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+
+        /* ====== 顶部标题栏 ====== */
+        .header {
+            position: sticky;
+            top: var(--safe-area-top);
+            z-index: 100;
+            background: rgba(255, 231, 240, 0.75);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-bottom: 1px solid rgba(255, 122, 179, 0.15);
+            padding: 12px 20px 10px;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .header-title {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #ff5a9e 0%, #ff8a5a 50%, #c87dff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header-date {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .header-greeting {
+            font-size: 13px;
+            color: var(--text-tertiary);
+        }
+
+        /* ====== 浮动小怪物装饰 ====== */
+        .floating-monsters {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        .mini-monster {
+            position: absolute;
+            font-size: 18px;
+            opacity: 0.7;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .mini-monster.m1 { top: 12%; left: 6%; animation-delay: 0s; }
+        .mini-monster.m2 { top: 18%; right: 8%; animation-delay: 1.5s; font-size: 14px; }
+        .mini-monster.m3 { top: 45%; right: 5%; animation-delay: 3s; font-size: 12px; }
+        .mini-monster.m4 { top: 70%; left: 4%; animation-delay: 4.5s; font-size: 16px; }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(-5deg); }
+            50% { transform: translateY(-12px) rotate(5deg); }
+        }
+
+        /* ====== 主内容区 ====== */
+        .main-content {
+            padding: 16px 16px calc(80px + var(--safe-area-bottom));
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        /* ====== 板块卡片通用样式 ====== */
+        .section {
+            margin-bottom: 20px;
+            animation: fadeInUp 0.5s ease-out both;
+            position: relative;
+            z-index: 2;
+        }
+
+        .section:nth-child(1) { animation-delay: 0.05s; }
+        .section:nth-child(2) { animation-delay: 0.1s; }
+        .section:nth-child(3) { animation-delay: 0.15s; }
+        .section:nth-child(4) { animation-delay: 0.2s; }
+        .section:nth-child(5) { animation-delay: 0.25s; }
+        .section:nth-child(6) { animation-delay: 0.3s; }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            padding: 0 4px;
+        }
+
+        .section-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            flex-shrink: 0;
+        }
+
+        .section-title {
+            font-size: 17px;
+            font-weight: 600;
+            flex: 1;
+        }
+
+        .section-tag {
+            font-size: 10px;
+            color: var(--text-tertiary);
+            background: rgba(255,255,255,0.05);
+            padding: 2px 8px;
+            border-radius: 6px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(12px) saturate(150%);
+            -webkit-backdrop-filter: blur(12px) saturate(150%);
+            border-radius: var(--radius);
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 16px rgba(255, 122, 179, 0.06);
+        }
+
+        /* ====== 财经消息板块 ====== */
+        .news-card {
+            padding: 0;
+        }
+
+        .news-item {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border-color);
+            transition: background 0.2s;
+            cursor: pointer;
+        }
+
+        .news-item:last-child { border-bottom: none; }
+        .news-item:active { background: var(--bg-card-hover); }
+
+        .news-title {
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 1.4;
+            margin-bottom: 4px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .news-meta {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .news-tag {
+            color: var(--accent-hot-pink);
+            font-weight: 500;
+        }
+
+        .news-source {
+            color: var(--text-tertiary);
+        }
+
+        /* ====== 股市行情板块 ====== */
+        .market-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1px;
+            background: var(--border-color);
+        }
+
+        .market-cell {
+            background: rgba(255, 255, 255, 0.5);
+            padding: 14px 12px;
+            text-align: center;
+        }
+
+        .market-name {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .market-value {
+            font-size: 20px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            margin-bottom: 2px;
+        }
+
+        .market-change {
+            font-size: 12px;
+            font-weight: 500;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .up { color: var(--accent-red); }
+        .down { color: var(--accent-green); }
+
+        .market-analysis {
+            padding: 14px 16px;
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            margin-top: 10px;
+            border: 1px solid var(--border-color);
+        }
+
+        .analysis-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent-hot-pink);
+            margin-bottom: 8px;
+        }
+
+        .analysis-text {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .hot-stocks {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 10px 16px;
+            scrollbar-width: none;
+        }
+        .hot-stocks::-webkit-scrollbar { display: none; }
+
+        .stock-chip {
+            flex-shrink: 0;
+            background: rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(255, 122, 179, 0.1);
+            border-radius: 10px;
+            padding: 8px 12px;
+            text-align: center;
+            min-width: 80px;
+        }
+
+        .stock-name {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-bottom: 2px;
+        }
+
+        .stock-price {
+            font-size: 14px;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stock-change {
+            font-size: 11px;
+            font-weight: 500;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ====== 可转债板块 ====== */
+        .bond-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .bond-table th {
+            font-size: 10px;
+            color: var(--text-tertiary);
+            font-weight: 500;
+            padding: 10px 8px;
+            text-align: right;
+            background: rgba(255, 230, 240, 0.5);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .bond-table th:first-child { text-align: left; padding-left: 16px; }
+        .bond-table th:last-child { padding-right: 16px; }
+
+        .bond-table td {
+            padding: 10px 8px;
+            font-size: 12px;
+            border-bottom: 1px solid var(--border-color);
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+        .bond-table td:first-child { text-align: left; padding-left: 16px; }
+        .bond-table td:last-child { padding-right: 16px; }
+        .bond-table tr:last-child td { border-bottom: none; }
+
+        .bond-name {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .bond-code {
+            font-size: 10px;
+            color: var(--text-tertiary);
+            margin-top: 1px;
+        }
+
+        .bond-highlight {
+            color: var(--accent-orange);
+            font-weight: 600;
+        }
+
+        .bond-tag {
+            display: inline-block;
+            font-size: 9px;
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        .bond-tag-good { background: rgba(0, 200, 83, 0.15); color: var(--accent-green); }
+        .bond-tag-warn { background: rgba(255, 149, 0, 0.15); color: var(--accent-orange); }
+
+        .bond-strategy {
+            padding: 12px 16px;
+            background: rgba(255, 230, 240, 0.6);
+            border-top: 1px solid var(--border-color);
+        }
+
+        .strategy-text {
+            font-size: 11px;
+            color: var(--accent-hot-pink);
+            line-height: 1.5;
+        }
+
+        /* ====== 英语口语板块 ====== */
+        .english-card {
+            padding: 20px 16px;
+            text-align: center;
+        }
+
+        .english-sentence {
+            font-size: 18px;
+            font-weight: 600;
+            line-height: 1.5;
+            margin-bottom: 8px;
+            color: var(--accent-hot-pink);
+        }
+
+        .english-translation {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        .english-pronunciation {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            font-style: italic;
+            margin-bottom: 16px;
+        }
+
+        .english-btn-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .english-btn {
+            background: rgba(255, 90, 158, 0.12);
+            color: var(--accent-hot-pink);
+            border: 1px solid rgba(255, 90, 158, 0.25);
+            border-radius: 20px;
+            padding: 8px 18px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .english-btn:active {
+            transform: scale(0.95);
+            background: rgba(255, 90, 158, 0.2);
+        }
+
+        .english-phrases {
+            margin-top: 16px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border-color);
+            text-align: left;
+        }
+
+        .phrase-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .phrase-item:last-child { border-bottom: none; }
+
+        .phrase-en {
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .phrase-cn {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* ====== 书籍推荐板块 ====== */
+        .book-list {
+            padding: 0;
+        }
+
+        .book-item {
+            display: flex;
+            gap: 12px;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .book-item:last-child { border-bottom: none; }
+
+        .book-cover {
+            width: 48px;
+            height: 64px;
+            border-radius: 6px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: rgba(255,255,255,0.3);
+        }
+
+        .book-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .book-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .book-author {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            margin-bottom: 4px;
+        }
+
+        .book-desc {
+            font-size: 11px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .book-rating {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            font-size: 11px;
+            color: var(--accent-orange);
+            font-weight: 600;
+            margin-top: 4px;
+        }
+
+        /* ====== 音乐板块 ====== */
+        .music-card {
+            padding: 16px;
+        }
+
+        .music-now-playing {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+
+        .music-cover {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #ff8ab8 0%, #ffb89e 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 3px 10px rgba(255, 138, 184, 0.3);
+        }
+
+        .music-cover::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
+        }
+
+        .music-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .music-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .music-artist {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .music-play-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-hot-pink), var(--accent-peach));
+            box-shadow: 0 4px 12px rgba(255, 90, 158, 0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+            flex-shrink: 0;
+        }
+
+        .music-play-btn:active { transform: scale(0.9); }
+
+        .music-play-btn svg { fill: white; }
+
+        .music-playlist {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .music-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 8px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .music-item:active { background: var(--bg-card-hover); }
+        .music-item.active { background: rgba(74, 158, 255, 0.08); }
+
+        .music-num {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            width: 20px;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .music-item.active .music-num { color: var(--accent-hot-pink); }
+
+        .music-item-info { flex: 1; min-width: 0; }
+        .music-item-title { font-size: 13px; font-weight: 500; }
+        .music-item-title.active { color: var(--accent-hot-pink); }
+        .music-item-artist { font-size: 11px; color: var(--text-tertiary); }
+
+        .music-duration {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .music-search-btn {
+            font-size: 14px;
+            padding: 4px 8px;
+            border-radius: 8px;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+        }
+        .music-item:active .music-search-btn { opacity: 1; }
+
+        .music-progress {
+            height: 3px;
+            background: rgba(255, 122, 179, 0.15);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 14px;
+        }
+
+        .music-progress-bar {
+            height: 100%;
+            width: 35%;
+            background: linear-gradient(90deg, var(--accent-hot-pink), var(--accent-peach));
+            border-radius: 2px;
+            transition: width 0.3s linear;
+        }
+
+        /* ====== 底部导航栏 ====== */
+        .tab-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 231, 240, 0.85);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-top: 1px solid rgba(255, 122, 179, 0.15);
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 0 calc(8px + var(--safe-area-bottom));
+            z-index: 100;
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        .tab-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            cursor: pointer;
+            padding: 4px 12px;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .tab-item:active { background: rgba(255,255,255,0.05); }
+
+        .tab-icon {
+            font-size: 20px;
+            line-height: 1;
+        }
+
+        .tab-label {
+            font-size: 10px;
+            color: var(--text-tertiary);
+            font-weight: 500;
+        }
+
+        .tab-item.active .tab-label { color: var(--accent-hot-pink); }
+
+        /* ====== 滚动到顶部按钮 ====== */
+        .scroll-top-btn {
+            position: fixed;
+            bottom: 90px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 90, 158, 0.2);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 90, 158, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: var(--accent-hot-pink);
+            cursor: pointer;
+            z-index: 50;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: all 0.3s;
+            pointer-events: none;
+        }
+
+        .scroll-top-btn.visible {
+            opacity: 1;
+            transform: scale(1);
+            pointer-events: auto;
+        }
+
+        /* ====== Toast提示 ====== */
+        .toast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            background: rgba(255, 90, 158, 0.92);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 18px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 4px 16px rgba(255, 90, 158, 0.3);
+            z-index: 2000;
+            opacity: 0;
+            transition: all 0.3s;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        /* ====== 音频可视化 ====== */
+        .music-bars {
+            display: flex;
+            gap: 2px;
+            align-items: flex-end;
+            height: 16px;
+        }
+
+        .music-bars span {
+            width: 3px;
+            background: var(--accent-hot-pink);
+            border-radius: 1px;
+            animation: musicBar 0.8s ease-in-out infinite;
+        }
+
+        .music-bars span:nth-child(1) { animation-delay: 0s; height: 60%; }
+        .music-bars span:nth-child(2) { animation-delay: 0.15s; height: 100%; }
+        .music-bars span:nth-child(3) { animation-delay: 0.3s; height: 70%; }
+        .music-bars span:nth-child(4) { animation-delay: 0.45s; height: 90%; }
+
+        @keyframes musicBar {
+            0%, 100% { transform: scaleY(0.4); }
+            50% { transform: scaleY(1); }
+        }
+
+        .music-bars.paused span {
+            animation-play-state: paused;
+            transform: scaleY(0.4);
+        }
+    </style>
+</head>
+<body>
+
+<!-- 顶部安全区 -->
+<div class="safe-area-top"></div>
+
+<!-- 顶部标题栏 -->
+<header class="header">
+    <div class="header-top">
+        <div>
+            <div class="header-title">我的工作台</div>
+            <div class="header-greeting" id="greeting">🌸 早安，今天也要开心鸭</div>
+        </div>
+        <div style="text-align:right;">
+            <div class="header-date" id="currentDate"></div>
+            <div class="header-date" id="currentTime" style="font-size:11px;color:var(--text-tertiary);"></div>
+        </div>
+    </div>
+</header>
+
+<!-- 主内容区 -->
+<main class="main-content">
+
+    <!-- 浮动装饰小怪 -->
+    <div class="floating-monsters">
+        <div class="mini-monster m1">👹</div>
+        <div class="mini-monster m2">🌸</div>
+        <div class="mini-monster m3">⭐</div>
+        <div class="mini-monster m4">💖</div>
+    </div>
+
+    <!-- ====== 1. 每日最新财经消息 ====== -->
+    <section class="section" id="section-news">
+        <div class="section-header">
+            <div class="section-icon" style="background:rgba(255,90,158,0.15);">📰</div>
+            <div class="section-title">每日财经消息</div>
+            <span class="section-tag">实时更新</span>
+        </div>
+        <div class="card news-card">
+            <div class="news-item" onclick="openLink('https://finance.eastmoney.com/a/202607303826626131.html')">
+                <div class="news-title">中共中央政治局召开会议 分析研究当前经济形势和经济工作</div>
+                <div class="news-meta">
+                    <span class="news-tag">🔴 要闻</span>
+                    <span class="news-source">新华社 · 7月30日</span>
+                </div>
+            </div>
+            <div class="news-item" onclick="openLink('https://finance.eastmoney.com/a/202607303826740010.html')">
+                <div class="news-title">超4500亿元净流入！大量资金借道ETF入市，7月创月度净流入纪录</div>
+                <div class="news-meta">
+                    <span class="news-tag">🟠 重磅</span>
+                    <span class="news-source">东方财富 · 7月30日</span>
+                </div>
+            </div>
+            <div class="news-item" onclick="openLink('https://finance.eastmoney.com/a/202607303826884592.html')">
+                <div class="news-title">中际旭创港股首日破发 A股跌超9% 光模块龙头蓄力等待反转</div>
+                <div class="news-meta">
+                    <span class="news-tag">🟡 热点</span>
+                    <span class="news-source">证券时报 · 7月30日</span>
+                </div>
+            </div>
+            <div class="news-item" onclick="openLink('https://finance.sina.com.cn/stock/usstock/c/2025-07-31/doc-inekfxhqws8467123.shtml')">
+                <div class="news-title">微软盘前飙涨超10% 第四财季营收900亿美元同比增长18%超预期</div>
+                <div class="news-meta">
+                    <span class="news-tag">🔵 外围</span>
+                    <span class="news-source">新浪财经 · 7月30日</span>
+                </div>
+            </div>
+            <div class="news-item" onclick="openLink('https://finance.eastmoney.com/a/202607303826832595.html')">
+                <div class="news-title">欧盟计划投资114亿美元建设7座人工智能超级工厂</div>
+                <div class="news-meta">
+                    <span class="news-tag">🟣 国际</span>
+                    <span class="news-source">东方财富 · 7月30日</span>
+                </div>
+            </div>
+            <div class="news-item" onclick="openLink('https://finance.eastmoney.com/a/202607303826903213.html')">
+                <div class="news-title">银行股逆势走强 工行建行创新高 41家上市银行连续三年新高</div>
+                <div class="news-meta">
+                    <span class="news-tag">🟢 板块</span>
+                    <span class="news-source">东方财富 · 7月30日</span>
+                </div>
+            </div>
+            <div class="news-item" onclick="openLink('https://finance.eastmoney.com/a/202607303826993516.html')">
+                <div class="news-title">宇树科技IPO时间定了！8月10日申购 科创板迎机器人龙头</div>
+                <div class="news-meta">
+                    <span class="news-tag">🟠 重磅</span>
+                    <span class="news-source">东方财富 · 7月30日</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ====== 2. 每日股市行情分析 ====== -->
+    <section class="section" id="section-market">
+        <div class="section-header">
+            <div class="section-icon" style="background:rgba(255,138,90,0.18);">📈</div>
+            <div class="section-title">股市行情分析</div>
+            <span class="section-tag" id="marketTime">收盘</span>
+        </div>
+        <div class="card">
+            <!-- 指数概览 -->
+            <div class="market-grid">
+                <div class="market-cell" onclick="openLink('https://quote.eastmoney.com/zs000001.html')">
+                    <div class="market-name">上证指数</div>
+                    <div class="market-value down">3804.69</div>
+                    <div class="market-change down">▼ -23.78 (-0.62%)</div>
+                </div>
+                <div class="market-cell" onclick="openLink('https://quote.eastmoney.com/zs399001.html')">
+                    <div class="market-name">深证成指</div>
+                    <div class="market-value down">13285.80</div>
+                    <div class="market-change down">▼ -372.64 (-2.73%)</div>
+                </div>
+                <div class="market-cell" onclick="openLink('https://quote.eastmoney.com/zs399006.html')">
+                    <div class="market-name">创业板指</div>
+                    <div class="market-value down">3244.62</div>
+                    <div class="market-change down">▼ -134.08 (-3.97%)</div>
+                </div>
+                <div class="market-cell" onclick="openLink('https://quote.eastmoney.com/zs000688.html')">
+                    <div class="market-name">科创50</div>
+                    <div class="market-value down">1588.41</div>
+                    <div class="market-change down">▼ -90.32 (-5.38%)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 热门个股 -->
+        <div class="card" style="margin-top:10px;">
+            <div style="padding:10px 16px 0;font-size:12px;color:var(--text-secondary);font-weight:500;">🔥 热门个股</div>
+            <div class="hot-stocks">
+                <div class="stock-chip" onclick="openLink('https://xueqiu.com/S/SH600519')">
+                    <div class="stock-name">贵州茅台</div>
+                    <div class="stock-price up">1361.76</div>
+                    <div class="stock-change up">+3.09%</div>
+                </div>
+                <div class="stock-chip" onclick="openLink('https://xueqiu.com/S/SZ300750')">
+                    <div class="stock-name">宁德时代</div>
+                    <div class="stock-price up">401.88</div>
+                    <div class="stock-change up">+1.27%</div>
+                </div>
+                <div class="stock-chip" onclick="openLink('https://xueqiu.com/S/SH601318')">
+                    <div class="stock-name">中国平安</div>
+                    <div class="stock-price up">55.80</div>
+                    <div class="stock-change up">+2.76%</div>
+                </div>
+                <div class="stock-chip" onclick="openLink('https://xueqiu.com/S/SZ300308')">
+                    <div class="stock-name">中际旭创</div>
+                    <div class="stock-price down">864.00</div>
+                    <div class="stock-change down">-9.15%</div>
+                </div>
+                <div class="stock-chip" onclick="openLink('https://xueqiu.com/S/SZ001309')">
+                    <div class="stock-name">德明利</div>
+                    <div class="stock-price up">390.04</div>
+                    <div class="stock-change up">+10.00%</div>
+                </div>
+                <div class="stock-chip" onclick="openLink('https://xueqiu.com/S/SH600000')">
+                    <div class="stock-name">浦发银行</div>
+                    <div class="stock-price up">—</div>
+                    <div class="stock-change up">+4.63%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 行情分析 -->
+        <div class="market-analysis">
+            <div class="analysis-title">📊 今日行情点评</div>
+            <div class="analysis-text">
+                <strong>科技杀跌、消费护盘</strong>：科创50大跌5.38%，创业板指跌3.97%，芯片/光模块/半导体板块集体下挫。中际旭创港股上市首日破发拖累光模块板块。消费板块逆势走强，茅台创近两月新高，酿酒、石油、金融板块涨幅居前。银行股连续三年新高，工行建行齐创新高。政治局会议重提"加大逆周期调节力度"，ETF7月吸金超4500亿创纪录。短期科技超跌后有反弹需求，但需关注中报业绩验证。
+            </div>
+        </div>
+    </section>
+
+    <!-- ====== 3. 每日值得跟踪的可转债 ====== -->
+    <section class="section" id="section-bond">
+        <div class="section-header">
+            <div class="section-icon" style="background:rgba(200,125,255,0.18);">💎</div>
+            <div class="section-title">值得跟踪的可转债</div>
+            <span class="section-tag">双低策略</span>
+        </div>
+        <div class="card">
+            <table class="bond-table">
+                <thead>
+                    <tr>
+                        <th>转债名称</th>
+                        <th>现价</th>
+                        <th>溢价率</th>
+                        <th>双低值</th>
+                        <th>评级</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr onclick="openLink('https://quote.eastmoney.com/bk/127061.html')" style="cursor:pointer;">
+                        <td>
+                            <div class="bond-name">密卫转债</div>
+                            <div class="bond-code">113658</div>
+                        </td>
+                        <td>109.73</td>
+                        <td>0.66%</td>
+                        <td class="bond-highlight">110.39</td>
+                        <td><span class="bond-tag bond-tag-good">AA-</span></td>
+                    </tr>
+                    <tr onclick="openLink('https://quote.eastmoney.com/bk/127061.html')" style="cursor:pointer;">
+                        <td>
+                            <div class="bond-name">美锦转债</div>
+                            <div class="bond-code">127061</div>
+                        </td>
+                        <td>108.71</td>
+                        <td>5.36%</td>
+                        <td class="bond-highlight">114.07</td>
+                        <td><span class="bond-tag bond-tag-warn">A</span></td>
+                    </tr>
+                    <tr onclick="openLink('https://quote.eastmoney.com/bk/110081.html')" style="cursor:pointer;">
+                        <td>
+                            <div class="bond-name">闻泰转债</div>
+                            <div class="bond-code">110081</div>
+                        </td>
+                        <td>100.68</td>
+                        <td>15.46%</td>
+                        <td class="bond-highlight">116.14</td>
+                        <td><span class="bond-tag bond-tag-warn">BBB+</span></td>
+                    </tr>
+                    <tr onclick="openLink('https://quote.eastmoney.com/bk/113605.html')" style="cursor:pointer;">
+                        <td>
+                            <div class="bond-name">大参转债</div>
+                            <div class="bond-code">113605</div>
+                        </td>
+                        <td>118.99</td>
+                        <td>4.87%</td>
+                        <td class="bond-highlight">123.86</td>
+                        <td><span class="bond-tag bond-tag-good">AA</span></td>
+                    </tr>
+                    <tr onclick="openLink('https://quote.eastmoney.com/bk/128134.html')" style="cursor:pointer;">
+                        <td>
+                            <div class="bond-name">鸿路转债</div>
+                            <div class="bond-code">128134</div>
+                        </td>
+                        <td>121.36</td>
+                        <td>5.19%</td>
+                        <td class="bond-highlight">126.55</td>
+                        <td><span class="bond-tag bond-tag-good">AA</span></td>
+                    </tr>
+                    <tr onclick="openLink('https://quote.eastmoney.com/bk/128128.html')" style="cursor:pointer;">
+                        <td>
+                            <div class="bond-name">齐翔转2</div>
+                            <div class="bond-code">128128</div>
+                        </td>
+                        <td>110.25</td>
+                        <td>16.54%</td>
+                        <td class="bond-highlight">126.79</td>
+                        <td><span class="bond-tag bond-tag-good">AA</span></td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="bond-strategy">
+                <div class="strategy-text">
+                    💡 <strong>双低策略</strong>：选取价格低（&lt;120元）且溢价率低（&lt;30%）的可转债，兼顾债底保护和股性弹性。美锦转债、闻泰转债到期税前收益为正（6%~7%），具备保底安全垫。⚠️ 闻泰转债正股为*ST，存在退市风险，需谨慎。
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ====== 4. 英语口语练习 ====== -->
+    <section class="section" id="section-english">
+        <div class="section-header">
+            <div class="section-icon" style="background:rgba(109,200,232,0.18);">🗣️</div>
+            <div class="section-title">英语口语练习</div>
+            <span class="section-tag" id="englishDay">Day 1</span>
+        </div>
+        <div class="card english-card">
+            <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:10px;">📖 每日一句</div>
+            <div class="english-sentence" id="engSentence">"The early bird catches the worm, but the second mouse gets the cheese."</div>
+            <div class="english-translation" id="engTranslation">早起的鸟儿有虫吃，但第二只老鼠才能吃到奶酪。（意为：先行者有机会，但后来者能从先行者的教训中获益）</div>
+            <div class="english-pronunciation" id="engPron">/ðə ˈɜːrli bɜːrd ˈkætʃɪz ðə wɜːrm, bət ðə ˈsekənd maʊs ɡets ðə tʃiːz/</div>
+            <div class="english-btn-group">
+                <button class="english-btn" onclick="speakEnglish()">🔊 朗读</button>
+                <button class="english-btn" onclick="nextSentence()">⏭️ 换一句</button>
+            </div>
+
+            <div class="english-phrases">
+                <div style="font-size:12px;color:var(--text-secondary);font-weight:600;margin-bottom:8px;">📝 今日实用短语</div>
+                <div class="phrase-item">
+                    <div>
+                        <div class="phrase-en">I couldn't agree more.</div>
+                        <div class="phrase-cn">我完全同意</div>
+                    </div>
+                    <button class="english-btn" style="padding:4px 12px;font-size:11px;" onclick="speakText('I couldn\'t agree more.')">🔊</button>
+                </div>
+                <div class="phrase-item">
+                    <div>
+                        <div class="phrase-en">Let's call it a day.</div>
+                        <div class="phrase-cn">今天就到这里吧</div>
+                    </div>
+                    <button class="english-btn" style="padding:4px 12px;font-size:11px;" onclick="speakText('Let\'s call it a day.')">🔊</button>
+                </div>
+                <div class="phrase-item">
+                    <div>
+                        <div class="phrase-en">That's easier said than done.</div>
+                        <div class="phrase-cn">说起来容易做起来难</div>
+                    </div>
+                    <button class="english-btn" style="padding:4px 12px;font-size:11px;" onclick="speakText('That\'s easier said than done.')">🔊</button>
+                </div>
+                <div class="phrase-item">
+                    <div>
+                        <div class="phrase-en">I'm looking forward to it.</div>
+                        <div class="phrase-cn">我很期待</div>
+                    </div>
+                    <button class="english-btn" style="padding:4px 12px;font-size:11px;" onclick="speakText('I\'m looking forward to it.')">🔊</button>
+                </div>
+                <div class="phrase-item">
+                    <div>
+                        <div class="phrase-en">It's been a long day.</div>
+                        <div class="phrase-cn">今天真是漫长的一天</div>
+                    </div>
+                    <button class="english-btn" style="padding:4px 12px;font-size:11px;" onclick="speakText('It\'s been a long day.')">🔊</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ====== 5. 值得读的书籍 ====== -->
+    <section class="section" id="section-books">
+        <div class="section-header">
+            <div class="section-icon" style="background:rgba(255,184,158,0.25);">📚</div>
+            <div class="section-title">值得读的书籍</div>
+            <span class="section-tag">豆瓣2025</span>
+        </div>
+        <div class="card book-list">
+            <div class="book-item" onclick="openLink('https://search.douban.com/book/subject_search?search_text=九诗心 黄晓丹')">
+                <div class="book-cover" style="background:linear-gradient(135deg,#2d5a27,#4a7c59);">📖</div>
+                <div class="book-info">
+                    <div class="book-title">九诗心</div>
+                    <div class="book-author">黄晓丹</div>
+                    <div class="book-desc">通过九位古代诗人的生命故事，展现诗词背后幽暗而明亮的心灵世界，理解人在困境中的精神抉择。</div>
+                    <div class="book-rating">⭐ 9.0 · 年度图书第1名</div>
+                </div>
+            </div>
+            <div class="book-item" onclick="openLink('https://search.douban.com/book/subject_search?search_text=哲学家的最后一课 朱锐')">
+                <div class="book-cover" style="background:linear-gradient(135deg,#4a148c,#7b1fa2);">📖</div>
+                <div class="book-info">
+                    <div class="book-title">哲学家的最后一课</div>
+                    <div class="book-author">朱锐</div>
+                    <div class="book-desc">一位哲学家在生命最后时光的深刻思考，关于死亡、意义与尊严，用哲学智慧面对人生终极问题。</div>
+                    <div class="book-rating">⭐ 8.8 · 历史·文化</div>
+                </div>
+            </div>
+            <div class="book-item" onclick="openLink('https://search.douban.com/book/subject_search?search_text=要有光 梁鸿')">
+                <div class="book-cover" style="background:linear-gradient(135deg,#e65100,#f57c00);">📖</div>
+                <div class="book-info">
+                    <div class="book-title">要有光</div>
+                    <div class="book-author">梁鸿</div>
+                    <div class="book-desc">梁鸿深入中国乡村的纪实书写，记录那些在时代洪流中挣扎却依然寻找光芒的普通人。</div>
+                    <div class="book-rating">⭐ 8.7 · 社会·纪实</div>
+                </div>
+            </div>
+            <div class="book-item" onclick="openLink('https://search.douban.com/book/subject_search?search_text=格外的活法 吉井忍')">
+                <div class="book-cover" style="background:linear-gradient(135deg,#00838f,#00acc1);">📖</div>
+                <div class="book-info">
+                    <div class="book-title">格外的活法</div>
+                    <div class="book-author">[日] 吉井忍</div>
+                    <div class="book-desc">日本普通人的非普通生活方式，在常规之外寻找属于自己的节奏与意义，温柔而有力量的生活记录。</div>
+                    <div class="book-rating">⭐ 8.6 · 社会·纪实</div>
+                </div>
+            </div>
+            <div class="book-item" onclick="openLink('https://search.douban.com/book/subject_search?search_text=源代码 比尔盖茨')">
+                <div class="book-cover" style="background:linear-gradient(135deg,#1565c0,#1976d2);">📖</div>
+                <div class="book-info">
+                    <div class="book-title">源代码</div>
+                    <div class="book-author">[美] 比尔·盖茨</div>
+                    <div class="book-desc">比尔·盖茨亲笔自传，讲述从童年到微软创立的关键岁月，揭示科技改变世界背后的个人故事。</div>
+                    <div class="book-rating">⭐ 8.5 · 商业·经管</div>
+                </div>
+            </div>
+            <div class="book-item" onclick="openLink('https://search.douban.com/book/subject_search?search_text=看不见的中东 姚璐')">
+                <div class="book-cover" style="background:linear-gradient(135deg,#bf360c,#d84315);">📖</div>
+                <div class="book-info">
+                    <div class="book-title">看不见的中东</div>
+                    <div class="book-author">姚璐</div>
+                    <div class="book-desc">一位中国女性深入中东多国的旅行记录，揭开新闻头条之外真实而复杂的中东日常。</div>
+                    <div class="book-rating">⭐ 8.5 · 社会·纪实</div>
+                </div>
+            </div>
+            <div class="book-item" onclick="openLink('https://search.douban.com/book/subject_search?search_text=人生解忧 成庆')">
+                <div class="book-cover" style="background:linear-gradient(135deg,#1b5e20,#43a047);">📖</div>
+                <div class="book-info">
+                    <div class="book-title">人生解忧</div>
+                    <div class="book-author">成庆</div>
+                    <div class="book-desc">佛学视角下的现代人生困境解答，用古老智慧回应焦虑、内卷与迷茫，给当代人的心灵指南。</div>
+                    <div class="book-rating">⭐ 8.4 · 历史·文化</div>
+                </div>
+            </div>
+            <div class="book-item" onclick="openLink('https://search.douban.com/book/subject_search?search_text=希腊别传 陈嘉映')">
+                <div class="book-cover" style="background:linear-gradient(135deg,#37474f,#607d8b);">📖</div>
+                <div class="book-info">
+                    <div class="book-title">希腊别传</div>
+                    <div class="book-author">陈嘉映</div>
+                    <div class="book-desc">哲学家陈嘉映对古希腊文明的独特解读，从神话到哲学，带领读者理解西方文明的源头。</div>
+                    <div class="book-rating">⭐ 8.6 · 历史·文化</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ====== 6. 音乐 ====== -->
+    <section class="section" id="section-music">
+        <div class="section-header">
+            <div class="section-icon" style="background:rgba(255,107,181,0.2);">🎵</div>
+            <div class="section-title">每日音乐</div>
+            <span class="section-tag">放松心情</span>
+        </div>
+        <div class="card music-card">
+            <!-- 正在播放 -->
+            <div class="music-now-playing">
+                <div class="music-cover" id="musicCover">🎶</div>
+                <div class="music-info">
+                    <div class="music-title" id="nowPlayTitle">未选择歌曲</div>
+                    <div class="music-artist" id="nowPlayArtist">点击下方歌曲开始播放</div>
+                </div>
+                <div class="music-play-btn" id="playBtn" onclick="togglePlay()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg>
+                </div>
+            </div>
+
+            <!-- 进度条 -->
+            <div class="music-progress">
+                <div class="music-progress-bar" id="progressBar"></div>
+            </div>
+
+            <!-- 播放列表 -->
+            <div class="music-playlist" id="playlist">
+                <div class="music-item" onclick="selectMusic(0, 'River Flows in You', 'Yiruma', '3:45')">
+                    <div class="music-num">1</div>
+                    <div class="music-item-info">
+                        <div class="music-item-title">River Flows in You</div>
+                        <div class="music-item-artist">Yiruma · 钢琴曲</div>
+                    </div>
+                    <div class="music-duration">3:45</div>
+                    <div class="music-search-btn" onclick="event.stopPropagation(); openLink('https://music.163.com/#/search/m/?s=River Flows in You Yiruma')">🔍</div>
+                </div>
+                <div class="music-item" onclick="selectMusic(1, 'Weightless', 'Marconi Union', '8:08')">
+                    <div class="music-num">2</div>
+                    <div class="music-item-info">
+                        <div class="music-item-title">Weightless</div>
+                        <div class="music-item-artist">Marconi Union · 放松减压</div>
+                    </div>
+                    <div class="music-duration">8:08</div>
+                    <div class="music-search-btn" onclick="event.stopPropagation(); openLink('https://music.163.com/#/search/m/?s=Weightless Marconi Union')">🔍</div>
+                </div>
+                <div class="music-item" onclick="selectMusic(2, 'Clair de Lune', 'Debussy', '5:00')">
+                    <div class="music-num">3</div>
+                    <div class="music-item-info">
+                        <div class="music-item-title">Clair de Lune</div>
+                        <div class="music-item-artist">Debussy · 古典钢琴</div>
+                    </div>
+                    <div class="music-duration">5:00</div>
+                    <div class="music-search-btn" onclick="event.stopPropagation(); openLink('https://music.163.com/#/search/m/?s=Clair de Lune Debussy')">🔍</div>
+                </div>
+                <div class="music-item" onclick="selectMusic(3, 'Gymnopédie No.1', 'Erik Satie', '3:12')">
+                    <div class="music-num">4</div>
+                    <div class="music-item-info">
+                        <div class="music-item-title">Gymnopédie No.1</div>
+                        <div class="music-item-artist">Erik Satie · 冥想钢琴</div>
+                    </div>
+                    <div class="music-duration">3:12</div>
+                    <div class="music-search-btn" onclick="event.stopPropagation(); openLink('https://music.163.com/#/search/m/?s=Gymnopedie No.1 Erik Satie')">🔍</div>
+                </div>
+                <div class="music-item" onclick="selectMusic(4, 'Comptine d\'un autre été', 'Yann Tiersen', '2:21')">
+                    <div class="music-num">5</div>
+                    <div class="music-item-info">
+                        <div class="music-item-title">Comptine d'un autre été</div>
+                        <div class="music-item-artist">Yann Tiersen · 天使爱美丽</div>
+                    </div>
+                    <div class="music-duration">2:21</div>
+                    <div class="music-search-btn" onclick="event.stopPropagation(); openLink('https://music.163.com/#/search/m/?s=Comptine d\'un autre été Yann Tiersen')">🔍</div>
+                </div>
+                <div class="music-item" onclick="selectMusic(5, 'Nuvole Bianche', 'Ludovico Einaudi', '5:56')">
+                    <div class="music-num">6</div>
+                    <div class="music-item-info">
+                        <div class="music-item-title">Nuvole Bianche</div>
+                        <div class="music-item-artist">Ludovico Einaudi · 意大利</div>
+                    </div>
+                    <div class="music-duration">5:56</div>
+                    <div class="music-search-btn" onclick="event.stopPropagation(); openLink('https://music.163.com/#/search/m/?s=Nuvole Bianche Ludovico Einaudi')">🔍</div>
+                </div>
+                <div class="music-item" onclick="selectMusic(6, 'Experience', 'Ludovico Einaudi', '5:12')">
+                    <div class="music-num">7</div>
+                    <div class="music-item-info">
+                        <div class="music-item-title">Experience</div>
+                        <div class="music-item-artist">Ludovico Einaudi · 经典</div>
+                    </div>
+                    <div class="music-duration">5:12</div>
+                    <div class="music-search-btn" onclick="event.stopPropagation(); openLink('https://music.163.com/#/search/m/?s=Experience Ludovico Einaudi')">🔍</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<!-- 滚动到顶部按钮 -->
+<div class="scroll-top-btn" id="scrollTopBtn" onclick="scrollToTop()">↑</div>
+
+<!-- 底部导航栏 -->
+<nav class="tab-bar">
+    <div class="tab-item active" onclick="scrollToSection('section-news')">
+        <div class="tab-icon">📰</div>
+        <div class="tab-label">财经</div>
+    </div>
+    <div class="tab-item" onclick="scrollToSection('section-market')">
+        <div class="tab-icon">📈</div>
+        <div class="tab-label">行情</div>
+    </div>
+    <div class="tab-item" onclick="scrollToSection('section-bond')">
+        <div class="tab-icon">💎</div>
+        <div class="tab-label">可转债</div>
+    </div>
+    <div class="tab-item" onclick="scrollToSection('section-english')">
+        <div class="tab-icon">🗣️</div>
+        <div class="tab-label">英语</div>
+    </div>
+    <div class="tab-item" onclick="scrollToSection('section-books')">
+        <div class="tab-icon">📚</div>
+        <div class="tab-label">书籍</div>
+    </div>
+    <div class="tab-item" onclick="scrollToSection('section-music')">
+        <div class="tab-icon">🎵</div>
+        <div class="tab-label">音乐</div>
+    </div>
+</nav>
+
+<!-- Toast提示 -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ====== 时间与问候 ======
+function updateTime() {
+    const now = new Date();
+    const days = ['日','一','二','三','四','五','六'];
+    const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+    
+    const dateStr = `${now.getFullYear()}年${months[now.getMonth()]}${now.getDate()}日 周${days[now.getDay()]}`;
+    const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+    
+    document.getElementById('currentDate').textContent = dateStr;
+    document.getElementById('currentTime').textContent = timeStr;
+    
+    const hour = now.getHours();
+    let greeting = '';
+    if (hour < 6) greeting = '夜深了，注意休息';
+    else if (hour < 9) greeting = '早安，新的一天开始了';
+    else if (hour < 12) greeting = '上午好，保持专注';
+    else if (hour < 14) greeting = '中午好，记得吃饭';
+    else if (hour < 18) greeting = '下午好，继续加油';
+    else if (hour < 22) greeting = '晚上好，辛苦了';
+    else greeting = '夜深了，早点休息';
+    document.getElementById('greeting').textContent = greeting;
+}
+updateTime();
+setInterval(updateTime, 1000);
+
+// ====== 打开外部链接 ======
+function openLink(url) {
+    window.open(url, '_blank');
+}
+
+// ====== Toast提示 ======
+let toastTimer = null;
+function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+// ====== 滚动到指定板块 ======
+function scrollToSection(id) {
+    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+    
+    const el = document.getElementById(id);
+    if (el) {
+        const offset = 70;
+        const top = el.getBoundingClientRect().top + window.pageYOffset - offset;
+        window.scrollTo({ top, behavior: 'smooth' });
+    }
+}
+
+// ====== 滚动到顶部 ======
+function scrollToTop() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ====== 滚动监听 ======
+const scrollTopBtn = document.getElementById('scrollTopBtn');
+window.addEventListener('scroll', () => {
+    if (window.pageYOffset > 300) {
+        scrollTopBtn.classList.add('visible');
+    } else {
+        scrollTopBtn.classList.remove('visible');
+    }
+    
+    // 自动更新底部导航高亮
+    const sections = document.querySelectorAll('.section');
+    const scrollPos = window.pageYOffset + 100;
+    sections.forEach((section, index) => {
+        const top = section.offsetTop;
+        const bottom = top + section.offsetHeight;
+        if (scrollPos >= top && scrollPos < bottom) {
+            document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+            const tabs = document.querySelectorAll('.tab-item');
+            if (tabs[index]) tabs[index].classList.add('active');
+        }
+    });
+});
+
+// ====== 英语口语功能 ======
+const sentences = [
+    {
+        en: '"The early bird catches the worm, but the second mouse gets the cheese."',
+        cn: '早起的鸟儿有虫吃，但第二只老鼠才能吃到奶酪。（后来者能从先行者的教训中获益）',
+        pron: '/ðə ˈɜːrli bɜːrd ˈkætʃɪz ðə wɜːrm, bət ðə ˈsekənd maʊs ɡets ðə tʃiːz/'
+    },
+    {
+        en: '"Success is not final, failure is not fatal: it is the courage to continue that counts."',
+        cn: '成功不是终点，失败也不是末日：重要的是继续前行的勇气。',
+        pron: '/səkˈses ɪz nɒt ˈfaɪnl, ˈfeɪljər ɪz nɒt ˈfeɪtl: ɪt ɪz ðə ˈkʌrɪdʒ tə kənˈtɪnjuː ðæt kaʊnts/'
+    },
+    {
+        en: '"The best time to plant a tree was 20 years ago. The second best time is now."',
+        cn: '种一棵树最好的时间是二十年前，其次是现在。',
+        pron: '/ðə best taɪm tə plænt ə triː wɒz ˈtwenti jɪrz əˈɡoʊ. ðə ˈsekənd best taɪm ɪz naʊ/'
+    },
+    {
+        en: '"Life is what happens when you\'re busy making other plans."',
+        cn: '生活就是你忙着做其他计划时发生在你身上的事。',
+        pron: '/laɪf ɪz wɒt ˈhæpənz wen jɔːr ˈbɪzi ˈmeɪkɪŋ ˈʌðər plænz/'
+    },
+    {
+        en: '"Be yourself; everyone else is already taken."',
+        cn: '做你自己；其他人已经有人做了。',
+        pron: '/biː jɔːrˈself; ˈevriwʌn els ɪz ɔːlˈredi ˈteɪkən/'
+    },
+    {
+        en: '"The only way to do great work is to love what you do."',
+        cn: '成就伟业的唯一途径就是热爱你所做的事。',
+        pron: '/ðə ˈoʊnli weɪ tə duː ɡreɪt wɜːrk ɪz tə lʌv wɒt juː duː/'
+    },
+    {
+        en: '"In the middle of difficulty lies opportunity."',
+        cn: '在困难之中蕴藏着机遇。',
+        pron: '/ɪn ðə ˈmɪdl əv ˈdɪfɪkəlti laɪz ˌɒpərˈtuːnɪti/'
+    }
+];
+
+let sentenceIndex = 0;
+function nextSentence() {
+    sentenceIndex = (sentenceIndex + 1) % sentences.length;
+    const s = sentences[sentenceIndex];
+    document.getElementById('engSentence').textContent = s.en;
+    document.getElementById('engTranslation').textContent = s.cn;
+    document.getElementById('engPron').textContent = s.pron;
+    document.getElementById('englishDay').textContent = `Day ${sentenceIndex + 1}`;
+    showToast('已切换到新句子');
+}
+
+function speakEnglish() {
+    const text = sentences[sentenceIndex].en.replace(/[""]/g, '');
+    speakText(text);
+}
+
+function speakText(text) {
+    if ('speechSynthesis' in window) {
+        speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = 'en-US';
+        utter.rate = 0.85;
+        utter.pitch = 1;
+        speechSynthesis.speak(utter);
+        showToast('🔊 正在朗读...');
+    } else {
+        showToast('您的浏览器不支持语音朗读');
+    }
+}
+
+// ====== 音乐播放器 ======
+let currentMusicIndex = -1;
+let isPlaying = false;
+let progressInterval = null;
+let progressValue = 0;
+
+function selectMusic(index, title, artist, duration) {
+    currentMusicIndex = index;
+    progressValue = 0;
+    
+    document.getElementById('nowPlayTitle').textContent = title;
+    document.getElementById('nowPlayArtist').textContent = artist;
+    
+    // 更新播放列表高亮
+    document.querySelectorAll('.music-item').forEach((item, i) => {
+        item.classList.toggle('active', i === index);
+        const titleEl = item.querySelector('.music-item-title');
+        if (titleEl) titleEl.classList.toggle('active', i === index);
+    });
+    
+    // 更新播放按钮
+    isPlaying = true;
+    updatePlayButton();
+    
+    // 模拟进度条
+    startProgress();
+    
+    showToast(`▶ 正在播放：${title}`);
+}
+
+function togglePlay() {
+    if (currentMusicIndex === -1) {
+        selectMusic(0, 'River Flows in You', 'Yiruma', '3:45');
+        return;
+    }
+    isPlaying = !isPlaying;
+    updatePlayButton();
+    if (isPlaying) {
+        startProgress();
+    } else {
+        stopProgress();
+    }
+}
+
+function updatePlayButton() {
+    const icon = document.getElementById('playIcon');
+    if (isPlaying) {
+        icon.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+    } else {
+        icon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+    }
+}
+
+function startProgress() {
+    stopProgress();
+    progressInterval = setInterval(() => {
+        progressValue += 0.5;
+        if (progressValue >= 100) progressValue = 0;
+        document.getElementById('progressBar').style.width = progressValue + '%';
+    }, 500);
+}
+
+function stopProgress() {
+    clearInterval(progressInterval);
+}
+
+// ====== 防止双击缩放 ======
+let lastTouchEnd = 0;
+document.addEventListener('touchend', (e) => {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 300) e.preventDefault();
+    lastTouchEnd = now;
+}, { passive: false });
+
+// ====== 初始化 ======
+console.log('✅ 工作台已加载');
+</script>
+
+</body>
+</html>
