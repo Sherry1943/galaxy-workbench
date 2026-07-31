@@ -784,6 +784,7 @@ function renderJpPhrases() {
 
 // ====== 录音跟读 + 语音识别评分 ======
 let mediaRecorder = null, audioChunks = [], lastRecordBlob = null;
+let currentRecognition = null, currentTranscript = '', currentLang = '';
 const langMap = {
     en: { recBtn:'enRecBtn', result:'enRecordResult', srLang:'en-US', field:'en', sentences:sentences, idx:() => sentIdx },
     kr: { recBtn:'krRecBtn', result:'krRecordResult', srLang:'ko-KR', field:'kr', sentences:krSentences, idx:() => krIdx },
@@ -797,9 +798,15 @@ function startRecord(lang) {
 
     // 如果正在录音 → 停止并评分
     if (mediaRecorder && mediaRecorder.state === 'recording') {
-        mediaRecorder.stop();
         btn.textContent = '🎤 跟读';
         btn.style.background = 'rgba(255, 90, 158, 0.12)';
+        if (mediaRecorder) mediaRecorder.stop();
+        if (currentRecognition) { try { currentRecognition.stop(); } catch(e) {} currentRecognition = null; }
+        // 用收集到的识别结果评分
+        const original = cfg.sentences[cfg.idx()][cfg.field].replace(/["""！。！？?.,]/g, '').trim();
+        const originalWords = original.split(/\s+/);
+        const recognizedWords = currentTranscript.toLowerCase().replace(/["""！。！？?.,]/g, '').trim().split(/\s+/).filter(Boolean);
+        showScoreResult(lang, originalWords, recognizedWords);
         return;
     }
 
@@ -810,112 +817,83 @@ function startRecord(lang) {
 
     // 隐藏之前的评分结果
     document.getElementById(cfg.result).classList.remove('show');
+    currentTranscript = '';
+    currentLang = lang;
 
     navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-        mediaRecorder = new MediaRecorder(stream);
+        // 检测iOS,优先用mp4格式
+        const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent);
+        const mimeType = isIOS ? 'audio/mp4' : 'audio/webm';
+        try {
+            mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
+        } catch(e) {
+            mediaRecorder = new MediaRecorder(stream);
+        }
         audioChunks = [];
         mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
         mediaRecorder.onstop = () => {
             stream.getTracks().forEach(t => t.stop());
-            lastRecordBlob = new Blob(audioChunks, { type: 'audio/webm' });
-            // 先播放录音让用户听到自己的声音
-            const url = URL.createObjectURL(lastRecordBlob);
-            const audio = new Audio(url);
-            audio.play().catch(() => {});
-            // 然后用语音识别评分
-            scorePronunciation(lang, lastRecordBlob);
+            const blob = new Blob(audioChunks, { type: mimeType });
+            lastRecordBlob = blob;
+            // 转 dataURL 嵌入到UI的<audio>元素里
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const audioEl = document.getElementById('playbackAudio');
+                if (audioEl) audioEl.src = reader.result;
+            };
+            reader.readAsDataURL(blob);
         };
         mediaRecorder.start();
+
+        // 同时启动语音识别（iOS/Safari 必须实时识别，不能离线识别音频文件）
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SR) {
+            currentRecognition = new SR();
+            currentRecognition.lang = cfg.srLang;
+            currentRecognition.continuous = true;
+            currentRecognition.interimResults = true;
+            currentRecognition.maxAlternatives = 1;
+            currentRecognition.onresult = (event) => {
+                let transcript = '';
+                for (let i = 0; i < event.results.length; i++) {
+                    transcript += event.results[i][0].transcript;
+                }
+                currentTranscript = transcript;
+            };
+            currentRecognition.onerror = () => {};
+            try {
+                currentRecognition.start();
+            } catch(e) {}
+        } else {
+            // 不支持识别时的提示
+            document.getElementById(cfg.result).innerHTML = '<div style="text-align:center;padding:12px;font-size:12px;color:var(--text-tertiary);">⚠️ 浏览器不支持语音识别，请用对比标准发音的方式练习</div>';
+            document.getElementById(cfg.result).classList.add('show');
+        }
+
         btn.textContent = '⏹️ 停止';
         btn.style.background = 'rgba(255, 90, 90, 0.2)';
-        showToast('🎤 正在录音...再点一次停止并评分');
+        showToast('🎤 正在录音...点结束按钮停止并评分');
     }).catch(() => {
         showToast('⚠️ 无法访问麦克风，请检查权限');
     });
 }
 
-// 语音识别评分
-function scorePronunciation(lang, audioBlob) {
-    const cfg = langMap[lang];
-    const resultEl = document.getElementById(cfg.result);
-    const original = cfg.sentences[cfg.idx()][cfg.field].replace(/["""！。！？?.,]/g, '').trim();
-    const originalWords = original.split(/\s+/);
-
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) {
-        // 不支持语音识别 → 只提供录音回放
-        resultEl.innerHTML = `
-            <div style="text-align:center;font-size:13px;color:var(--text-secondary);margin-bottom:10px;">
-                🎵 录音已完成，点击下方按钮重听
-            </div>
-            <div class="record-playback">
-                <button class="english-btn" onclick="playbackRecord()">▶ 重听录音</button>
-                <button class="english-btn" onclick="speakText('${original.replace(/'/g,"\\'")}', '${cfg.srLang}')">🔊 听标准发音</button>
-            </div>
-            <div style="margin-top:10px;font-size:11px;color:var(--text-tertiary);text-align:center;">
-                你的浏览器不支持语音评分，可对比标准发音自行纠正
-            </div>`;
-        resultEl.classList.add('show');
-        return;
-    }
-
-    // 显示评分中状态
-    resultEl.innerHTML = '<div style="text-align:center;padding:16px;font-size:13px;color:var(--text-secondary);">🔍 正在识别评分...</div>';
-    resultEl.classList.add('show');
-
-    const recognition = new SR();
-    recognition.lang = cfg.srLang;
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-
-    let recognizedText = '';
-    let timeoutHandle = setTimeout(() => {
-        recognition.stop();
-        showScoreResult(lang, originalWords, '', false);
-    }, 8000);
-
-    recognition.onresult = (event) => {
-        clearTimeout(timeoutHandle);
-        recognizedText = event.results[0][0].transcript;
-        showScoreResult(lang, originalWords, recognizedText, true);
-    };
-    recognition.onerror = (event) => {
-        clearTimeout(timeoutHandle);
-        showScoreResult(lang, originalWords, '', false);
-    };
-    recognition.onend = () => {
-        clearTimeout(timeoutHandle);
-    };
-
-    // 用录音文件做语音识别
-    const audioUrl = URL.createObjectURL(audioBlob);
-    const audio = new Audio(audioUrl);
-    audio.play().catch(() => {
-        // 如果播放失败，直接显示无识别结果
-        clearTimeout(timeoutHandle);
-        showScoreResult(lang, originalWords, '', false);
-    });
-}
-
 // 显示评分结果
-function showScoreResult(lang, originalWords, recognizedText, recognized) {
+function showScoreResult(lang, originalWords, recognizedWords) {
     const cfg = langMap[lang];
     const resultEl = document.getElementById(cfg.result);
-    const recognizedWords = recognized ? recognizedText.toLowerCase().replace(/["""！。！？?.,]/g, '').trim().split(/\s+/) : [];
 
     // 逐词对比
     let correctCount = 0;
     let wordHtml = '';
     const usedRec = new Set();
 
-    originalWords.forEach((word, i) => {
+    originalWords.forEach((word) => {
         const wLower = word.toLowerCase();
         let matched = false;
         for (let j = 0; j < recognizedWords.length; j++) {
             if (usedRec.has(j)) continue;
             const rw = recognizedWords[j];
-            // 精确匹配或编辑距离<=1
             if (rw === wLower || levenshtein(rw, wLower) <= 1) {
                 matched = true;
                 usedRec.add(j);
@@ -930,61 +908,90 @@ function showScoreResult(lang, originalWords, recognizedText, recognized) {
         }
     });
 
-    // 多说的词
     recognizedWords.forEach((rw, j) => {
         if (!usedRec.has(j) && rw) {
             wordHtml += `<span class="word-miss">${rw}</span> `;
         }
     });
 
-    const score = originalWords.length > 0 ? Math.round((correctCount / originalWords.length) * 100) : 0;
+    const totalOriginal = originalWords.length;
+    const score = totalOriginal > 0 ? Math.round((correctCount / totalOriginal) * 100) : 0;
     const scoreColor = score >= 80 ? '#5fc89f' : score >= 60 ? '#ff9966' : '#ff5f7e';
     const scoreMsg = score >= 90 ? '🎉 发音非常标准！' :
                      score >= 75 ? '👍 发音不错，继续加油！' :
                      score >= 50 ? '💪 还可以，多练习几遍' :
+                     recognizedWords.length === 0 ? '📖 未能识别到语音，请重试' :
                      '📖 建议多听标准发音后重试';
 
     // 纠错建议
     let correction = '';
-    if (recognized) {
-        const wrongWords = originalWords.filter((w, i) => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+        correction = '<div class="correction-box"><strong>⚠️ 此浏览器不支持语音评分</strong>，请用Chrome/Edge等浏览器获得完整评分功能</div>';
+    } else if (recognizedWords.length === 0) {
+        correction = '<div class="correction-box"><strong>⚠️ 未能识别你的语音</strong>，可能是环境噪音较大或麦克风收音不佳。请到安静的地方面对手机重试。</div>';
+    } else {
+        const wrongWords = originalWords.filter((w) => {
             const wLower = w.toLowerCase();
             return !recognizedWords.some(rw => rw === wLower || levenshtein(rw, wLower) <= 1);
         });
         if (wrongWords.length > 0) {
             correction = `<div class="correction-box">
-                <strong>📌 需要注意的词:</strong><br>${wrongWords.map(w => `• <strong>${w}</strong> → 点击下方按钮听标准发音`).join('<br>')}
+                <strong>📌 需注意的词：</strong>${wrongWords.map(w => `<strong>${w}</strong>`).join('、')}<br>
+                点击下方"听标准发音"对比一下
             </div>`;
         } else if (score >= 90) {
-            correction = '<div class="correction-box"><strong>✅ 完美!</strong> 所有单词发音都正确</div>';
+            correction = '<div class="correction-box"><strong>✅ 完美！</strong>所有单词发音都正确</div>';
         }
-    } else {
-        correction = '<div class="correction-box"><strong>⚠️ 未能识别语音</strong>，可能是环境噪音较大。请到安静的地方再试，或点击下方按钮对比标准发音。</div>';
     }
 
+    const originalStr = originalWords.join(' ').replace(/'/g, "\\'");
     resultEl.innerHTML = `
         <div class="score-circle" style="background:${scoreColor}22;color:${scoreColor};border:3px solid ${scoreColor};">${score}</div>
         <div class="score-label">${scoreMsg}</div>
-        <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:6px;text-align:center;">原文对比 (绿色=正确，红色=需改进):</div>
+        <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:6px;text-align:center;">原文对比 (绿色=正确，红色=需改进，灰色=多说):</div>
         <div class="word-compare">${wordHtml}</div>
         ${correction}
+        <div style="margin-top:12px;">
+            <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:6px;text-align:center;">🎵 你的录音：</div>
+            <audio id="playbackAudio" controls style="width:100%;height:36px;" playsinline webkit-playsinline></audio>
+        </div>
         <div class="record-playback">
-            <button class="english-btn" onclick="playbackRecord()">▶ 重听录音</button>
-            <button class="english-btn" onclick="speakText('${originalWords.join(' ').replace(/'/g,"\\'")}', '${cfg.srLang}')">🔊 听标准发音</button>
+            <button class="english-btn" onclick="speakText('${originalStr}', '${cfg.srLang}')">🔊 听标准发音</button>
         </div>
     `;
     resultEl.classList.add('show');
+
+    // 把录音 blob 塞进 <audio> 元素
+    const audioEl = document.getElementById('playbackAudio');
+    if (audioEl && lastRecordBlob) {
+        const reader = new FileReader();
+        reader.onloadend = () => { audioEl.src = reader.result; };
+        reader.readAsDataURL(lastRecordBlob);
+    }
 }
 
-// 重听录音
+// 重听录音（iOS Safari 兼容，使用页面<em>audio</em>元素）
 function playbackRecord() {
-    if (lastRecordBlob) {
-        const url = URL.createObjectURL(lastRecordBlob);
-        const audio = new Audio(url);
-        audio.play().catch(() => showToast('⚠️ 播放失败'));
-    } else {
+    if (!lastRecordBlob) {
         showToast('⚠️ 没有录音');
+        return;
     }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+        let audioEl = document.getElementById('playbackAudio');
+        if (!audioEl) {
+            audioEl = document.createElement('audio');
+            audioEl.id = 'playbackAudio';
+            audioEl.style.display = 'none';
+            audioEl.setAttribute('playsinline', '');
+            audioEl.setAttribute('webkit-playsinline', '');
+            document.body.appendChild(audioEl);
+        }
+        audioEl.src = reader.result;
+        audioEl.play().catch(() => showToast('⚠️ 播放失败'));
+    };
+    reader.readAsDataURL(lastRecordBlob);
 }
 
 // 编辑距离算法（比较两个词的相似度）
