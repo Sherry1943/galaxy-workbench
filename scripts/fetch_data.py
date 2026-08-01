@@ -120,9 +120,11 @@ def fetch_news():
             j = json.loads(json_str)
             items = j.get('result', {}).get('cmsArticleWebOld', [])
             for item in items[:10]:
+                title = item.get('title', '').replace('<em>', '').replace('</em>', '')
+                digest = item.get('content', '')[:200].replace('<em>', '').replace('</em>', '') if item.get('content') else title
                 result.append({
-                    'title': item.get('title', '').replace('<em>', '').replace('</em>', ''),
-                    'digest': item.get('content', '')[:100].replace('<em>', '').replace('</em>', '') if item.get('content') else '',
+                    'title': title,
+                    'digest': digest,
                     'source': item.get('mediaName', ''),
                     'time': item.get('date', ''),
                     'url': item.get('url', ''),
@@ -138,9 +140,10 @@ def fetch_news():
                 j = json.loads(raw)
                 items = j.get('result', {}).get('data', [])
                 for item in items[:10]:
+                    title = item.get('title', '')
                     result.append({
-                        'title': item.get('title', ''),
-                        'digest': item.get('intro', '')[:100] if item.get('intro') else '',
+                        'title': title,
+                        'digest': item.get('intro', '')[:200] if item.get('intro') else title,
                         'source': '新浪财经',
                         'time': datetime.fromtimestamp(int(item.get('ctime', 0))).strftime('%m月%d日 %H:%M') if item.get('ctime') else '',
                         'url': item.get('url', ''),

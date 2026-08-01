@@ -169,7 +169,7 @@
         .news-item:last-child { border-bottom: none; }
         .news-item:active { background: var(--bg-card-hover); }
         .news-title { font-size: 16px; font-weight: 500; line-height: 1.4; margin-bottom: 4px; }
-        .news-digest { font-size: 14px; color: var(--text-secondary); line-height: 1.4; margin-bottom: 4px; display: none; }
+        .news-digest { font-size: 15px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 6px; display: none; padding: 10px 12px; background: rgba(255,240,245,0.6); border-radius: 8px; }
         .news-item.expanded .news-digest { display: block; }
         .news-meta { font-size: 13px; color: var(--text-tertiary); display: flex; gap: 8px; align-items: center; }
         .news-tag { color: var(--accent-hot-pink); font-weight: 500; }
@@ -585,21 +585,29 @@ async function loadNews() {
         return;
     }
     document.getElementById('newsUpdated').textContent = '更新于 ' + data.updated_at;
-    el.innerHTML = data.data.map((n, i) => `
+    el.innerHTML = data.data.map((n, i) => {
+        const digest = n.digest || n.title;
+        const emojis = ['🔴','🟠','🟡','🔵','🟣','🟢'];
+        return `
         <div class="news-item" onclick="toggleNewsExpand(this)">
             <div class="news-title">${n.title}</div>
-            ${n.digest ? `<div class="news-digest">${n.digest}</div>` : ''}
+            <div class="news-digest">${digest}</div>
             <div class="news-meta">
-                <span class="news-tag">${['🔴','🟠','🟡','🔵','🟣','🟢'][i%6]}</span>
+                <span class="news-tag">${emojis[i%6]}</span>
                 <span>${n.source || '财经'}</span>
                 <span>${n.time || ''}</span>
+                <span style="color:var(--accent-hot-pink);font-size:12px;">点击展开▾</span>
             </div>
         </div>
-    `).join('');
+    `;}).join('');
 }
 
 function toggleNewsExpand(el) {
     el.classList.toggle('expanded');
+    const hint = el.querySelector('.news-meta span:last-child');
+    if (hint) {
+        hint.textContent = el.classList.contains('expanded') ? '收起▴' : '点击展开▾';
+    }
 }
 
 async function loadMarket() {
