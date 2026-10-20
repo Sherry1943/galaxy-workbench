@@ -1,47 +1,47 @@
 {
-  "updated_at": "2026-10-20 00:10:55",
+  "updated_at": "2026-10-20 05:47:06",
   "data": [
     {
       "name": "贵州茅台",
       "code": "sh600519",
-      "price": 1324.97,
+      "price": 1320.93,
       "change_pct": -0.3,
       "direction": "down"
     },
     {
       "name": "宁德时代",
       "code": "sz300750",
-      "price": 267.02,
-      "change_pct": -3.6,
+      "price": 255.63,
+      "change_pct": -4.27,
       "direction": "down"
     },
     {
       "name": "中国平安",
       "code": "sh601318",
-      "price": 51.67,
-      "change_pct": -0.4,
+      "price": 50.63,
+      "change_pct": -2.01,
       "direction": "down"
     },
     {
       "name": "中际旭创",
       "code": "sz300308",
-      "price": 660.7,
-      "change_pct": -1.39,
+      "price": 646.37,
+      "change_pct": -2.17,
       "direction": "down"
     },
     {
       "name": "德明利",
       "code": "sz001309",
-      "price": 219.19,
-      "change_pct": 6.4,
-      "direction": "up"
+      "price": 217.96,
+      "change_pct": -0.56,
+      "direction": "down"
     },
     {
       "name": "浦发银行",
       "code": "sh600000",
-      "price": 9.78,
-      "change_pct": 0.51,
-      "direction": "up"
+      "price": 9.72,
+      "change_pct": -0.61,
+      "direction": "down"
     }
   ]
 }
